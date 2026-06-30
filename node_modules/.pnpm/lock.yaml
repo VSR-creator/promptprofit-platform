@@ -1,0 +1,24 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .: {}
+
+  apps/dashboard: {}
+
+  apps/website:
+    dependencies:
+      '@promptprofit/brain-sdk':
+        specifier: workspace:^
+        version: link:../../packages/brain-sdk
+      brain-sdk:
+        specifier: link:..\packages\brain-sdk
+        version: link:../packages/brain-sdk
+
+  packages/brain-sdk: {}
+
+  packages/types: {}
