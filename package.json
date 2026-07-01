@@ -4,7 +4,8 @@
   "packageManager": "pnpm@9.0.0",
   "scripts": {
     "dev": "pnpm --filter website dev",
-    "build": "turbo build",
-    "lint": "turbo lint"
+    "build": "pnpm --filter website build",
+    "start": "pnpm --filter website start",
+    "lint": "pnpm --filter website lint"
   }
 }
