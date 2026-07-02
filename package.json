@@ -8,5 +8,12 @@
     "build": "pnpm --filter website build",
     "start": "pnpm --filter website start",
     "build:all": "pnpm -r build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "supabase": "^2.109.0"
   }
 }
