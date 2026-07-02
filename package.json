@@ -1,12 +1,7 @@
 {
   "name": "promptprofit-platform",
   "private": true,
-  "packageManager": "pnpm@9.0.0",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-   {
+  "packageManager": "pnpm@10.0.0",
   "scripts": {
     "dev": "pnpm --filter website dev",
     "build": "pnpm --filter website build",
