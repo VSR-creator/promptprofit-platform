@@ -12,33 +12,36 @@ importers:
 
   apps/website:
     dependencies:
+      '@promptprofit/brain-sdk':
+        specifier: workspace:*
+        version: link:../../packages/brain-sdk
       next:
         specifier: 16.2.9
         version: 16.2.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react:
-        specifier: ^19.1.0
+        specifier: 19.2.7
         version: 19.2.7
       react-dom:
-        specifier: ^19.1.0
+        specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
     devDependencies:
       '@tailwindcss/postcss':
-        specifier: ^4.3.2
+        specifier: 4.3.2
         version: 4.3.2
       '@types/node':
-        specifier: ^22.15.30
+        specifier: 22.20.0
         version: 22.20.0
       '@types/react':
-        specifier: ^19.1.8
+        specifier: 19.2.17
         version: 19.2.17
       '@types/react-dom':
-        specifier: ^19.1.6
+        specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.17)
       autoprefixer:
-        specifier: ^10.5.2
+        specifier: 10.5.2
         version: 10.5.2(postcss@8.5.16)
       typescript:
-        specifier: ^5.8.3
+        specifier: 5.9.3
         version: 5.9.3
 
   packages/brain-sdk: {}
