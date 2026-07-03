@@ -1,77 +1,69 @@
-﻿import { NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
 const eventSchema = z.object({
-  type: z.enum(["page_view", "scroll", "click", "form_submit"]),
+  type: z.string().min(1).max(100),
   data: z.record(z.string(), z.unknown()).default({}),
-  clientTimestamp: z.string().datetime(),
+  clientTimestamp: z.string().datetime().optional(),
 });
 
 const payloadSchema = z.object({
-  siteKey: z.string().min(16),
+  siteKey: z.string().min(1),
   sessionId: z.string().uuid(),
-  visitorId: z.string().uuid(),
+  visitorId: z.string().uuid().optional(),
   events: z.array(eventSchema).min(1).max(50),
 });
 
-type PromptProfitEvent = z.infer<typeof eventSchema>;
+function normaliseDomain(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("/")[0];
+}
 
-function normalizeHost(value: string | null) {
-  if (!value) return null;
+function getRequestDomain(request: NextRequest) {
+  const origin = request.headers.get("origin");
 
-  let host = value.trim().toLowerCase();
-
-  if (host.startsWith("http://") || host.startsWith("https://")) {
+  if (origin) {
     try {
-      host = new URL(host).hostname;
+      return normaliseDomain(new URL(origin).hostname);
     } catch {
-      host = host.replace("https://", "").replace("http://", "").split("/")[0];
+      return null;
     }
   }
 
-  host = host.split(":")[0];
+  const referer = request.headers.get("referer");
 
-  if (host.startsWith("www.")) {
-    host = host.slice(4);
+  if (referer) {
+    try {
+      return normaliseDomain(new URL(referer).hostname);
+    } catch {
+      return null;
+    }
   }
 
-  return host;
+  const host = request.headers.get("host");
+
+  return host ? normaliseDomain(host) : null;
 }
 
-function isAllowedOrigin(request: Request, websiteDomain: string) {
-  const originHost = normalizeHost(request.headers.get("origin"));
-  const refererHost = normalizeHost(request.headers.get("referer"));
-  const expectedDomain = normalizeHost(websiteDomain);
-  const candidateHost = originHost || refererHost;
-
-  if (!candidateHost || !expectedDomain) return false;
-
-  return (
-    candidateHost === "localhost" ||
-    candidateHost === "127.0.0.1" ||
-    candidateHost === expectedDomain
-  );
-}
-
-function calculateIntentScore(events: PromptProfitEvent[]) {
+function calculateIntentScore(
+  events: Array<{
+    type: string;
+    data: Record<string, unknown>;
+  }>,
+) {
   let score = 0;
 
   for (const event of events) {
     if (event.type === "page_view") score += 5;
-
-    if (event.type === "scroll") {
-      const depth = Number(event.data.depth ?? 0);
-
-      if (depth >= 75) score += 15;
-      else if (depth >= 50) score += 10;
-      else if (depth >= 25) score += 5;
-    }
-
+    if (event.type === "scroll") score += 15;
     if (event.type === "click") score += 15;
-    if (event.type === "form_submit") score += 40;
   }
 
   return score;
@@ -86,16 +78,21 @@ function getDecision(intentScore: number) {
       confidence: 0.8,
       flow: {
         id: "warm-visitor-lead-capture-v1",
-        title: "Need help choosing the right solution?",
-        message: "Tell us what you are trying to achieve and we will point you in the right direction.",
-        primaryAction: {
-          label: "Get help",
-          action: "open_conversation",
-        },
-        secondaryAction: {
-          label: "Not now",
-          action: "dismiss",
-        },
+        currentStepIndex: 0,
+        steps: [
+          {
+            id: "welcome",
+            type: "message",
+            message:
+              "Looking for a smarter way to turn more website visitors into leads?",
+          },
+          {
+            id: "lead_capture",
+            type: "lead_capture",
+            message:
+              "Leave your details and we will show you how PromptProfit can help.",
+          },
+        ],
       },
     };
   }
@@ -103,13 +100,13 @@ function getDecision(intentScore: number) {
   return {
     decisionType: "none",
     flowId: null,
-    reason: "Visitor has not reached the engagement threshold.",
-    confidence: 0.95,
+    reason: "Not enough engagement signals yet.",
+    confidence: 0,
     flow: null,
   };
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const parsed = payloadSchema.safeParse(await request.json());
 
@@ -120,7 +117,7 @@ export async function POST(request: Request) {
           error: "Invalid event payload",
           issues: parsed.error.flatten(),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -128,34 +125,63 @@ export async function POST(request: Request) {
 
     const { data: website, error: websiteError } = await supabaseAdmin
       .from("websites")
-      .select("id, workspace_id, domain, is_active")
+      .select("id, domain, workspace_id")
       .eq("public_key", siteKey)
       .single();
 
-    if (websiteError || !website || !website.is_active) {
+    if (websiteError || !website) {
       return NextResponse.json(
-        { ok: false, error: "Unknown or inactive website" },
-        { status: 401 }
+        { ok: false, error: "Unknown website key" },
+        { status: 401 },
       );
     }
 
-    if (!isAllowedOrigin(request, website.domain)) {
+    const requestDomain = getRequestDomain(request);
+    const websiteDomain = normaliseDomain(website.domain);
+
+    const isLocalDevelopment =
+      requestDomain === "localhost" || requestDomain === "127.0.0.1";
+
+    if (
+      requestDomain &&
+      !isLocalDevelopment &&
+      requestDomain !== websiteDomain
+    ) {
       return NextResponse.json(
-        { ok: false, error: "Origin is not allowed for this website" },
-        { status: 403 }
+        { ok: false, error: "Request origin is not allowed for this website" },
+        { status: 403 },
       );
     }
 
-    const intentScore = calculateIntentScore(events);
-    const decision = getDecision(intentScore);
+    const { error: sessionError } = await supabaseAdmin
+      .from("pp_sessions")
+      .upsert(
+        {
+          id: sessionId,
+          website_id: website.id,
+          visitor_id: visitorId ?? null,
+        },
+        {
+          onConflict: "id",
+        },
+      );
+    if (sessionError) {
+      console.error("PromptProfit session upsert failed:", sessionError);
+
+      return NextResponse.json(
+        { ok: false, error: "Unable to create session" },
+        { status: 500 },
+      );
+    }
 
     const eventRows = events.map((event) => ({
       website_id: website.id,
       session_id: sessionId,
       event_type: event.type,
       event_data: event.data,
-      client_timestamp: event.clientTimestamp,
+      client_timestamp: event.clientTimestamp ?? null,
     }));
+
     const { error: insertError } = await supabaseAdmin
       .from("pp_events")
       .insert(eventRows);
@@ -165,19 +191,25 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         { ok: false, error: "Unable to store events" },
-        { status: 500 }
+        { status: 500 },
       );
     }
+
+    const intentScore = calculateIntentScore(events);
+
+    const intentLevel =
+      intentScore >= 30 ? "high_intent" : intentScore >= 15 ? "warm" : "cold";
+
+    const decision = getDecision(intentScore);
 
     return NextResponse.json({
       ok: true,
       websiteId: website.id,
       sessionId,
-      visitorId,
+      visitorId: visitorId ?? null,
       receivedEvents: events.length,
       intentScore,
-      intentLevel:
-        intentScore >= 30 ? "high_intent" : intentScore >= 15 ? "warm" : "cold",
+      intentLevel,
       decision,
     });
   } catch (error) {
@@ -185,10 +217,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       { ok: false, error: "Unable to process events" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
-
 
