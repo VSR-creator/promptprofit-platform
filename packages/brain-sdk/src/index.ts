@@ -99,3 +99,5 @@ class EventBus {
 
 export const Brain = new EventBus();
 
+
+export { getSession } from "./session";
