@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { getSession } from "@promptprofit/brain-sdk";
 
 type FlowStep = {
   id?: string;
@@ -11,11 +12,15 @@ type FlowStep = {
 
 type Screen = "question" | "capture" | "success";
 
+const SITE_KEY = process.env.NEXT_PUBLIC_PROMPTPROFIT_SITE_KEY;
+
 export default function FlowPopup() {
   const [step, setStep] = useState<FlowStep | null>(null);
   const [screen, setScreen] = useState<Screen>("question");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     const handleFlow = (event: Event) => {
@@ -25,6 +30,8 @@ export default function FlowPopup() {
       setScreen("question");
       setEmail("");
       setName("");
+      setSubmitError("");
+      setIsSubmitting(false);
     };
 
     const handleClose = () => {
@@ -44,23 +51,71 @@ export default function FlowPopup() {
 
   const close = () => setStep(null);
 
-  const submitLead = (event: FormEvent<HTMLFormElement>) => {
+  const submitLead = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!email.trim()) return;
+    const normalizedEmail = email.trim().toLowerCase();
 
-    window.dispatchEvent(
-      new CustomEvent("pp-lead-captured", {
-        detail: {
-          name: name.trim(),
-          email: email.trim(),
-          source: "conversion-flow",
-          flowId: step.id ?? "website-demo",
+    if (!normalizedEmail || isSubmitting) return;
+
+    if (!SITE_KEY) {
+      setSubmitError("Lead capture is not configured for this website yet.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError("");
+
+    try {
+      const session = getSession();
+
+      const response = await fetch("/api/brain/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      }),
-    );
+        body: JSON.stringify({
+          siteKey: SITE_KEY,
+          sessionId: session.sessionId,
+          email: normalizedEmail,
+          sourcePage: window.location.pathname,
+          metadata: {
+            name: name.trim(),
+            flowId: step.id ?? "website-demo",
+            flowType: step.type ?? "conversion-flow",
+            flowQuestion: step.question ?? step.content ?? null,
+            captureSource: "promptprofit_flow_popup",
+          },
+        }),
+      });
 
-    setScreen("success");
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error ?? "Unable to save lead");
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("pp-lead-captured", {
+          detail: {
+            leadId: result.lead?.id,
+            name: name.trim(),
+            email: normalizedEmail,
+            source: "conversion-flow",
+            flowId: step.id ?? "website-demo",
+          },
+        }),
+      );
+
+      setScreen("success");
+    } catch (error) {
+      console.error("[PromptProfit] Lead capture failed:", error);
+      setSubmitError(
+        "We could not save your request right now. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -153,7 +208,8 @@ export default function FlowPopup() {
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     placeholder="Your name"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-950 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+                    disabled={isSubmitting}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-950 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100 disabled:cursor-not-allowed disabled:bg-slate-50"
                   />
                 </label>
 
@@ -167,22 +223,39 @@ export default function FlowPopup() {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder="you@company.com"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-950 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+                    disabled={isSubmitting}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-950 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100 disabled:cursor-not-allowed disabled:bg-slate-50"
                   />
                 </label>
 
+                {submitError && (
+                  <p
+                    className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700"
+                    role="alert"
+                  >
+                    {submitError}
+                  </p>
+                )}
+
                 <button
                   type="submit"
-                  className="w-full rounded-xl bg-violet-600 px-4 py-3 font-semibold text-white transition hover:bg-violet-700"
+                  disabled={isSubmitting}
+                  className="w-full rounded-xl bg-violet-600 px-4 py-3 font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-400"
                 >
-                  Send my conversion scan
+                  {isSubmitting
+                    ? "Saving your request..."
+                    : "Send my conversion scan"}
                 </button>
               </form>
 
               <button
                 type="button"
-                onClick={() => setScreen("question")}
-                className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
+                onClick={() => {
+                  setSubmitError("");
+                  setScreen("question");
+                }}
+                disabled={isSubmitting}
+                className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-medium text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed"
               >
                 Back
               </button>
@@ -204,8 +277,8 @@ export default function FlowPopup() {
               </h2>
 
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                We will use your details to send the next best step for turning
-                more website attention into revenue.
+                We have your request. The next step can now be measured from
+                lead capture to first interaction.
               </p>
 
               <button
