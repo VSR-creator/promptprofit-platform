@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     const { data: website, error: websiteError } = await supabase
       .from("websites")
-      .select("id, name, domain, public_key, is_active")
+      .select("id, workspace_id, name, domain, public_key, is_active")
       .eq("public_key", siteKey)
       .maybeSingle();
 
@@ -99,7 +99,31 @@ export async function POST(request: Request) {
         { ok: false, error: "Unable to save lead" },
         { status: 500 },
       );
-    }
+    } 
+
+    const { error: outcomeError } = await supabaseAdmin
+  .from("pp_lead_outcomes")
+  .upsert(
+    {
+      workspace_id: website.workspace_id,
+      website_id: website.id,
+      lead_id: lead.id,
+      status: "new",
+    },
+    {
+      onConflict: "lead_id",
+      ignoreDuplicates: true,
+    },
+  );
+
+if (outcomeError) {
+  console.error("PromptProfit lead outcome creation failed:", outcomeError);
+
+  return NextResponse.json(
+    { ok: false, error: "Lead saved but response workflow could not start" },
+    { status: 500 },
+  );
+}
 
     return NextResponse.json(
       {
