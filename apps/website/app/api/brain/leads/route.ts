@@ -1,6 +1,6 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const leadSchema = z.object({
   siteKey: z.string().min(1),
@@ -9,20 +9,6 @@ const leadSchema = z.object({
   sourcePage: z.string().min(1).max(2048),
   metadata: z.record(z.string(), z.unknown()).default({}),
 });
-
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error("Supabase server environment variables are missing.");
-  }
-
-  return createClient(url, serviceRoleKey, {
-    auth: { persistSession: false },
-  });
-}
-
 export async function POST(request: Request) {
   try {
     const parsed = leadSchema.safeParse(await request.json());
@@ -39,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     const { siteKey, sessionId, email, sourcePage, metadata } = parsed.data;
-    const supabase = getSupabaseAdmin();
+    const supabase = supabaseAdmin;
 
     const { data: website, error: websiteError } = await supabase
       .from("websites")
