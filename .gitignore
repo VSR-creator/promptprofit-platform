@@ -57,3 +57,6 @@ Thumbs.db
 # =========================
 *.tmp
 *.temp
+# Local backups and database inspection exports
+backups/
+supabase/live-schema.sql
