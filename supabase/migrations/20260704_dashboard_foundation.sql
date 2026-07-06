@@ -51,7 +51,7 @@ create index if not exists pp_leads_website_first_contacted_at_idx
 
 insert into workspace_outcome_playbooks (
   workspace_id,
-  primary_outcome,
+  outcome_type,
   response_target_seconds,
   value_model,
   lead_stages
