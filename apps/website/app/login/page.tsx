@@ -2,13 +2,13 @@
 
 import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabasePublishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
-const supabase = createClient(supabaseUrl, supabasePublishableKey);
+const supabase = createBrowserClient(supabaseUrl, supabasePublishableKey);
 
 function LoginForm() {
   const router = useRouter();
@@ -127,3 +127,4 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+

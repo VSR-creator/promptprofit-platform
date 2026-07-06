@@ -1,13 +1,17 @@
-﻿import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+﻿import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type WorkspaceContext = {
+  userId: string;
   workspaceId: string;
   workspaceName: string;
-  workspaceSlug: string;
   role: string;
-  operatorName: string;
-  operatorEmail: string;
+};
+
+type MembershipRow = {
+  workspace_id: string;
+  role: string;
+  workspaces: { id: string; name: string } | { id: string; name: string }[] | null;
 };
 
 export async function getWorkspaceContext(): Promise<WorkspaceContext> {
@@ -15,29 +19,27 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login?next=/dashboard");
+  if (userError || !user) {
+    throw new Error("You must be signed in to access this workspace.");
   }
 
-  const { data: membership, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("workspace_members")
     .select(`
+      workspace_id,
       role,
-      workspaces!inner (
+      workspaces (
         id,
-        name,
-        slug
-      ),
-      profiles (
-        full_name
+        name
       )
     `)
     .eq("user_id", user.id)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const membership = (data?.[0] ?? null) as MembershipRow | null;
 
   if (error || !membership) {
     throw new Error("No workspace membership was found for this account.");
@@ -47,20 +49,14 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
     ? membership.workspaces[0]
     : membership.workspaces;
 
-  const profile = Array.isArray(membership.profiles)
-    ? membership.profiles[0]
-    : membership.profiles;
-
   if (!workspace) {
-    throw new Error("Workspace details could not be loaded.");
+    throw new Error("The workspace linked to this account could not be loaded.");
   }
 
   return {
-    workspaceId: workspace.id,
+    userId: user.id,
+    workspaceId: membership.workspace_id,
     workspaceName: workspace.name,
-    workspaceSlug: workspace.slug,
     role: membership.role,
-    operatorName: profile?.full_name?.trim() || user.email?.split("@")[0] || "Operator",
-    operatorEmail: user.email ?? "",
   };
 }
