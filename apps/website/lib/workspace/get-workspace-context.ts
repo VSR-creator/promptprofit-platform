@@ -1,21 +1,34 @@
-﻿import { createSupabaseServerClient } from "@/lib/supabase/server";
+﻿import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+const ACTIVE_WORKSPACE_COOKIE = "pp_active_workspace";
+
 export type WorkspaceContext = {
-  userId: string;
   workspaceId: string;
   workspaceName: string;
+  workspaceSlug: string;
   role: string;
+  memberships: Array<{
+    workspaceId: string;
+    workspaceName: string;
+    workspaceSlug: string;
+    role: string;
+  }>;
 };
 
 type MembershipRow = {
   workspace_id: string;
   role: string;
-  workspaces: { id: string; name: string } | { id: string; name: string }[] | null;
+  workspaces:
+    | { id: string; name: string; slug: string }
+    | { id: string; name: string; slug: string }[]
+    | null;
 };
 
 export async function getWorkspaceContext(): Promise<WorkspaceContext> {
   const supabase = await createSupabaseServerClient();
+  const cookieStore = await cookies();
 
   const {
     data: { user },
@@ -23,7 +36,7 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    throw new Error("You must be signed in to access this workspace.");
+    throw new Error("You must sign in to access a workspace.");
   }
 
   const { data, error } = await supabaseAdmin
@@ -31,32 +44,61 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
     .select(`
       workspace_id,
       role,
-      workspaces (
+      workspaces!inner (
         id,
-        name
+        name,
+        slug
       )
     `)
     .eq("user_id", user.id)
-    .limit(1);
+    .order("created_at", { ascending: true });
 
-  const membership = (data?.[0] ?? null) as MembershipRow | null;
+  if (error) {
+    throw new Error(`Unable to load workspace membership: ${error.message}`);
+  }
 
-  if (error || !membership) {
+  if (!data || data.length === 0) {
     throw new Error("No workspace membership was found for this account.");
   }
 
-  const workspace = Array.isArray(membership.workspaces)
-    ? membership.workspaces[0]
-    : membership.workspaces;
+  const memberships = (data as MembershipRow[])
+    .map((membership) => {
+      const workspace = Array.isArray(membership.workspaces)
+        ? membership.workspaces[0]
+        : membership.workspaces;
 
-  if (!workspace) {
-    throw new Error("The workspace linked to this account could not be loaded.");
+      if (!workspace) return null;
+
+      return {
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        workspaceSlug: workspace.slug,
+        role: membership.role,
+      };
+    })
+    .filter(
+      (
+        membership,
+      ): membership is WorkspaceContext["memberships"][number] =>
+        membership !== null,
+    );
+
+  if (memberships.length === 0) {
+    throw new Error("No valid workspace membership was found.");
   }
 
+  const requestedWorkspaceId = cookieStore.get(ACTIVE_WORKSPACE_COOKIE)?.value;
+
+  const activeWorkspace =
+    memberships.find(
+      (membership) => membership.workspaceId === requestedWorkspaceId,
+    ) ?? memberships[0];
+
   return {
-    userId: user.id,
-    workspaceId: membership.workspace_id,
-    workspaceName: workspace.name,
-    role: membership.role,
+    workspaceId: activeWorkspace.workspaceId,
+    workspaceName: activeWorkspace.workspaceName,
+    workspaceSlug: activeWorkspace.workspaceSlug,
+    role: activeWorkspace.role,
+    memberships,
   };
 }

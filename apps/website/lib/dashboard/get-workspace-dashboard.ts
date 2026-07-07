@@ -1,4 +1,4 @@
-﻿import { supabaseAdmin } from "@/lib/supabase/admin";
+﻿import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type WebsiteRow = {
   id: string;
@@ -36,13 +36,15 @@ export type WorkspaceDashboard = {
 export async function getWorkspaceDashboard(
   workspaceId: string,
 ): Promise<WorkspaceDashboard> {
-  const { data: websites, error: websitesError } = await supabaseAdmin
+  const supabase = await createSupabaseServerClient();
+
+  const { data: websites, error: websitesError } = await supabase
     .from("websites")
     .select("id, name")
     .eq("workspace_id", workspaceId);
 
   if (websitesError) {
-    throw new Error("Unable to load workspace websites.");
+    throw new Error(`Unable to load workspace websites: ${websitesError.message} (${websitesError.code ?? "no-code"})`);
   }
 
   const typedWebsites = (websites ?? []) as WebsiteRow[];
@@ -64,23 +66,23 @@ export async function getWorkspaceDashboard(
 
   const [sessionsResult, leadsResult, highIntentResult, recentLeadsResult] =
     await Promise.all([
-      supabaseAdmin
+      supabase
         .from("pp_sessions")
         .select("id", { count: "exact", head: true })
         .in("website_id", websiteIds),
 
-      supabaseAdmin
+      supabase
         .from("pp_leads")
         .select("id", { count: "exact", head: true })
         .in("website_id", websiteIds),
 
-      supabaseAdmin
+      supabase
         .from("pp_sessions")
         .select("id", { count: "exact", head: true })
         .in("website_id", websiteIds)
         .gte("intent_score", 60),
 
-      supabaseAdmin
+      supabase
         .from("pp_leads")
         .select(`
           id,
@@ -133,3 +135,5 @@ export async function getWorkspaceDashboard(
     }),
   };
 }
+
+

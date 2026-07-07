@@ -1,83 +1,92 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const updateOutcomeSchema = z.object({
-workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid(),
 });
 
 type RouteContext = {
-params: Promise<{
-leadId: string;
-}>;
+  params: Promise<{
+    leadId: string;
+  }>;
 };
 
 export async function PATCH(request: Request, context: RouteContext) {
-try {
-const { leadId } = await context.params;
+  try {
+    const { leadId } = await context.params;
 
+    const parsed = updateOutcomeSchema.safeParse(await request.json());
 
-const parsed = updateOutcomeSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid outcome update payload" },
+        { status: 400 },
+      );
+    }
 
-if (!parsed.success) {
-  return NextResponse.json(
-    { ok: false, error: "Invalid outcome update payload" },
-    { status: 400 },
-  );
-}
+    const supabase = await createSupabaseServerClient();
 
-const { workspaceId } = parsed.data;
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-const { data: outcome, error: outcomeError } = await supabaseAdmin
-  .from("pp_lead_outcomes")
-  .update({
-    status: "contacted",
-    first_contacted_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  })
-  .eq("lead_id", leadId)
-  .eq("workspace_id", workspaceId)
-  .select("lead_id, status, first_contacted_at")
-  .maybeSingle();
+    if (authError || !user) {
+      return NextResponse.json(
+        { ok: false, error: "Authentication required" },
+        { status: 401 },
+      );
+    }
 
-if (outcomeError) {
-  console.error("PromptProfit outcome update failed:", outcomeError);
+    const now = new Date().toISOString();
 
-  return NextResponse.json(
-    { ok: false, error: "Unable to update lead outcome" },
-    { status: 500 },
-  );
-}
+    const { data: outcome, error: outcomeError } = await supabase
+      .from("pp_lead_outcomes")
+      .update({
+        status: "contacted",
+        first_contacted_at: now,
+        updated_at: now,
+      })
+      .eq("lead_id", leadId)
+      .eq("workspace_id", parsed.data.workspaceId)
+      .is("first_contacted_at", null)
+      .select("lead_id, status, first_contacted_at")
+      .maybeSingle();
 
-if (!outcome) {
-  return NextResponse.json(
-    {
-      ok: false,
-      error: "Lead outcome was not found for this workspace",
-    },
-    { status: 404 },
-  );
-}
+    if (outcomeError) {
+      console.error("PromptProfit outcome update failed:", outcomeError);
 
-return NextResponse.json({
-  ok: true,
-  outcome: {
-    leadId: outcome.lead_id,
-    status: outcome.status,
-    firstContactedAt: outcome.first_contacted_at,
-  },
-});
+      return NextResponse.json(
+        { ok: false, error: "Unable to update lead outcome" },
+        { status: 500 },
+      );
+    }
 
+    if (!outcome) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Lead outcome was not found, was already contacted, or you do not have access.",
+        },
+        { status: 404 },
+      );
+    }
 
-} catch (error) {
-console.error("PromptProfit outcome route failed:", error);
+    return NextResponse.json({
+      ok: true,
+      outcome: {
+        leadId: outcome.lead_id,
+        status: outcome.status,
+        firstContactedAt: outcome.first_contacted_at,
+      },
+    });
+  } catch (error) {
+    console.error("PromptProfit outcome route failed:", error);
 
-
-return NextResponse.json(
-  { ok: false, error: "Unable to process lead outcome update" },
-  { status: 500 },
-);
-
-
-}
+    return NextResponse.json(
+      { ok: false, error: "Unable to process lead outcome update" },
+      { status: 500 },
+    );
+  }
 }

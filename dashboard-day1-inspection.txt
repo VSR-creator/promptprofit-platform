@@ -1,0 +1,389 @@
+﻿=== DASHBOARD-RELATED APP FILES ===
+C:\dev\promptprofit-platform\apps\website\app\api\dashboard\leads\[leadId]\outcome\route.ts
+C:\dev\promptprofit-platform\apps\website\app\dashboard\page.tsx
+C:\dev\promptprofit-platform\apps\website\app\dashboard\leads\MarkContactedButton.tsx
+C:\dev\promptprofit-platform\apps\website\app\dashboard\leads\page.tsx
+
+=== MAIN DASHBOARD PAGE ===
+import { getWorkspaceDashboard } from "@/lib/dashboard/get-workspace-dashboard";
+
+export const dynamic = "force-dynamic";
+
+function formatDate(value: string) {
+return new Intl.DateTimeFormat("en-ZA", {
+dateStyle: "medium",
+timeStyle: "short",
+}).format(new Date(value));
+}
+
+export default async function DashboardPage() {
+const dashboard = await getWorkspaceDashboard();
+
+const cards = [
+{
+label: "Connected websites",
+value: dashboard.metrics.websites,
+detail: "Properties sending conversion intelligence",
+},
+{
+label: "Tracked sessions",
+value: dashboard.metrics.sessions,
+detail: "Visitor journeys recorded",
+},
+{
+label: "Captured leads",
+value: dashboard.metrics.leads,
+detail: "Contacts ready for follow-up",
+},
+{
+label: "Conversion rate",
+value: `${dashboard.metrics.conversionRate}%`,
+detail: "Leads divided by tracked sessions",
+},
+{
+label: "High-intent sessions",
+value: dashboard.metrics.highIntentSessions,
+detail: "Sessions scoring 60 or above",
+},
+];
+
+return ( <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-950 sm:px-6 lg:px-8"> <div className="mx-auto max-w-7xl"> <header className="mb-8 rounded-3xl border border-white/10 bg-gradient-to-br from-violet-600 via-violet-700 to-slate-950 p-6 text-white shadow-2xl sm:p-8"> <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-200">
+PromptProfit Â· Tenant Zero </p>
+
+
+      <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Conversion command center
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-violet-100 sm:text-base">
+            See how attention becomes qualified opportunity across your
+            connected websites.
+          </p>
+        </div>
+
+        <a
+          href="/"
+          className="inline-flex w-fit rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+        >
+          View marketing site
+        </a>
+      </div>
+    </header>
+
+    <section
+      aria-label="Conversion metrics"
+      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5"
+    >
+      {cards.map((card) => (
+        <article
+          key={card.label}
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
+          <p className="text-sm font-medium text-slate-500">{card.label}</p>
+          <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
+            {card.value}
+          </p>
+          <p className="mt-2 text-sm leading-5 text-slate-500">
+            {card.detail}
+          </p>
+        </article>
+      ))}
+    </section>
+
+    <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-2 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-600">
+            Revenue opportunity queue
+          </p>
+          <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-950">
+            Latest captured leads
+          </h2>
+        </div>
+
+        <p className="text-sm text-slate-500">
+          {dashboard.recentLeads.length} recent lead
+          {dashboard.recentLeads.length === 1 ? "" : "s"}
+        </p>
+      </div>
+
+      {dashboard.recentLeads.length === 0 ? (
+        <div className="px-6 py-14 text-center">
+          <p className="text-lg font-semibold text-slate-950">
+            No leads captured yet
+          </p>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+            When a visitor completes a PromptProfit conversion flow, their
+            lead will appear here with the page and context that created it.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left">
+            <thead className="bg-slate-50 text-xs uppercase tracking-[0.14em] text-slate-500">
+              <tr>
+                <th className="px-6 py-4 font-semibold">Lead</th>
+                <th className="px-6 py-4 font-semibold">Website</th>
+                <th className="px-6 py-4 font-semibold">Source page</th>
+                <th className="px-6 py-4 font-semibold">Captured</th>
+                <th className="px-6 py-4 font-semibold">Flow</th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-100">
+              {dashboard.recentLeads.map((lead) => (
+                <tr key={lead.id} className="transition hover:bg-slate-50">
+                  <td className="px-6 py-4">
+                    <p className="font-semibold text-slate-950">
+                      {lead.email}
+                    </p>
+                    {typeof lead.metadata.name === "string" &&
+                    lead.metadata.name.trim() ? (
+                      <p className="mt-1 text-sm text-slate-500">
+                        {lead.metadata.name}
+                      </p>
+                    ) : null}
+                  </td>
+
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {lead.websiteName}
+                  </td>
+
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {lead.sourcePage}
+                  </td>
+
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {formatDate(lead.createdAt)}
+                  </td>
+
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {typeof lead.metadata.flowId === "string"
+                      ? lead.metadata.flowId
+                      : "Conversion flow"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  </div>
+</main>
+
+
+);
+}
+
+=== LEADS PAGE CANDIDATES ===
+C:\dev\promptprofit-platform\apps\website\app\dashboard\leads\page.tsx
+
+=== LEAD RESPONSE LOADER ===
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+export type LeadQueueItem = {
+leadId: string;
+email: string;
+name: string | null;
+sourcePage: string;
+capturedAt: string;
+status: "new" | "contacted" | "qualified" | "won" | "lost";
+firstContactedAt: string | null;
+intentScore: number;
+};
+
+export async function getLeadResponseQueue(workspaceId: string) {
+const { data, error } = await supabaseAdmin
+.from("pp_lead_outcomes")
+.select(`       lead_id,
+      status,
+      first_contacted_at,
+      pp_leads!inner (
+        email,
+        source_page,
+        metadata,
+        created_at,
+        pp_sessions (
+          intent_score
+        )
+      )
+    `)
+.eq("workspace_id", workspaceId)
+.order("created_at", { ascending: false });
+
+if (error) {
+throw new Error(`Unable to load lead response queue: ${error.message}`);
+}
+
+return (data ?? []).map((row: any): LeadQueueItem => {
+const lead = row.pp_leads;
+const session = Array.isArray(lead.pp_sessions)
+? lead.pp_sessions[0]
+: lead.pp_sessions;
+
+
+return {
+  leadId: row.lead_id,
+  email: lead.email,
+  name: lead.metadata?.name ?? null,
+  sourcePage: lead.source_page,
+  capturedAt: lead.created_at,
+  status: row.status,
+  firstContactedAt: row.first_contacted_at,
+  intentScore: session?.intent_score ?? 0,
+};
+
+
+});
+}
+
+=== WORKSPACE DASHBOARD LOADER ===
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+const PROMPTPROFIT_WORKSPACE_ID =
+"1861ee99-3966-42c9-ac31-b9cb092d7f67";
+
+type WebsiteRow = {
+id: string;
+name: string;
+};
+
+type LeadRow = {
+id: string;
+email: string;
+source_page: string;
+metadata: Record<string, unknown> | null;
+created_at: string;
+websites: { name: string } | { name: string }[] | null;
+};
+
+export type WorkspaceDashboard = {
+workspaceId: string;
+metrics: {
+websites: number;
+sessions: number;
+leads: number;
+conversionRate: number;
+highIntentSessions: number;
+};
+recentLeads: Array<{
+id: string;
+email: string;
+sourcePage: string;
+createdAt: string;
+websiteName: string;
+metadata: Record<string, unknown>;
+}>;
+};
+
+export async function getWorkspaceDashboard(): Promise<WorkspaceDashboard> {
+const { data: websites, error: websitesError } = await supabaseAdmin
+.from("websites")
+.select("id, name")
+.eq("workspace_id", PROMPTPROFIT_WORKSPACE_ID);
+
+if (websitesError) {
+throw new Error("Unable to load PromptProfit websites.");
+}
+
+const typedWebsites = (websites ?? []) as WebsiteRow[];
+const websiteIds = typedWebsites.map((website) => website.id);
+
+if (websiteIds.length === 0) {
+return {
+workspaceId: PROMPTPROFIT_WORKSPACE_ID,
+metrics: {
+websites: 0,
+sessions: 0,
+leads: 0,
+conversionRate: 0,
+highIntentSessions: 0,
+},
+recentLeads: [],
+};
+}
+
+const [sessionsResult, leadsResult, highIntentResult, recentLeadsResult] =
+await Promise.all([
+supabaseAdmin
+.from("pp_sessions")
+.select("id", { count: "exact", head: true })
+.in("website_id", websiteIds),
+
+
+  supabaseAdmin
+    .from("pp_leads")
+    .select("id", { count: "exact", head: true })
+    .in("website_id", websiteIds),
+
+  supabaseAdmin
+    .from("pp_sessions")
+    .select("id", { count: "exact", head: true })
+    .in("website_id", websiteIds)
+    .gte("intent_score", 60),
+
+  supabaseAdmin
+    .from("pp_leads")
+    .select(`
+      id,
+      email,
+      source_page,
+      metadata,
+      created_at,
+      websites!inner(name)
+    `)
+    .in("website_id", websiteIds)
+    .order("created_at", { ascending: false })
+    .limit(10),
+]);
+
+
+if (
+sessionsResult.error ||
+leadsResult.error ||
+highIntentResult.error ||
+recentLeadsResult.error
+) {
+throw new Error("Unable to load PromptProfit dashboard intelligence.");
+}
+
+const sessions = sessionsResult.count ?? 0;
+const leads = leadsResult.count ?? 0;
+
+return {
+workspaceId: PROMPTPROFIT_WORKSPACE_ID,
+metrics: {
+websites: typedWebsites.length,
+sessions,
+leads,
+conversionRate:
+sessions === 0 ? 0 : Number(((leads / sessions) * 100).toFixed(1)),
+highIntentSessions: highIntentResult.count ?? 0,
+},
+recentLeads: ((recentLeadsResult.data ?? []) as LeadRow[]).map((lead) => {
+const website = Array.isArray(lead.websites)
+? lead.websites[0]
+: lead.websites;
+
+
+  return {
+    id: lead.id,
+    email: lead.email,
+    sourcePage: lead.source_page,
+    createdAt: lead.created_at,
+    websiteName: website?.name ?? "Unknown website",
+    metadata: lead.metadata ?? {},
+  };
+}),
+
+
+};
+}
+
+=== AUTH HELPERS ===
+C:\dev\promptprofit-platform\apps\website\lib\supabase\admin.ts
+C:\dev\promptprofit-platform\apps\website\lib\supabase\server.ts
+
+=== GIT STATE ===

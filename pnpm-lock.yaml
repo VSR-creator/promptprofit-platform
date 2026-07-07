@@ -63,6 +63,9 @@ importers:
       '@promptprofit/brain-sdk':
         specifier: workspace:*
         version: link:../../packages/brain-sdk
+      '@supabase/ssr':
+        specifier: ^0.12.0
+        version: 0.12.0(@supabase/supabase-js@2.110.0)
       '@supabase/supabase-js':
         specifier: ^2.110.0
         version: 2.110.0
