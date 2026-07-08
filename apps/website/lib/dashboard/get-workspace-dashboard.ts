@@ -3,6 +3,7 @@
 type WebsiteRow = {
   id: string;
   name: string;
+  activation_state: string;
 };
 
 type LeadRow = {
@@ -40,7 +41,7 @@ export async function getWorkspaceDashboard(
 
   const { data: websites, error: websitesError } = await supabase
     .from("websites")
-    .select("id, name")
+    .select("id, name, activation_state")
     .eq("workspace_id", workspaceId);
 
   if (websitesError) {
@@ -135,5 +136,6 @@ export async function getWorkspaceDashboard(
     }),
   };
 }
+
 
 

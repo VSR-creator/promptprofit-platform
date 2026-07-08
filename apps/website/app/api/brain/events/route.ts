@@ -195,6 +195,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const activationTimestamp = new Date().toISOString();
+
+    const { error: activationError } = await supabaseAdmin
+      .from("websites")
+      .update({
+        first_event_at: activationTimestamp,
+        activation_state: "TRACKING",
+        activated_at: activationTimestamp,
+      })
+      .eq("id", website.id)
+      .is("activated_at", null);
+
+    if (activationError) {
+      console.error("PromptProfit website activation update failed:", activationError);
+    }
+
     const intentScore = calculateIntentScore(events);
 
     const intentLevel =
@@ -221,4 +237,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+
 

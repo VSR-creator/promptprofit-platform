@@ -15,25 +15,33 @@ export default function ConnectWebsiteForm() {
     setIsSubmitting(true);
     setMessage("");
 
-    const response = await fetch("/api/websites", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, domain }),
-    });
+    try {
+      const response = await fetch("/api/websites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, domain }),
+      });
 
-    const payload = await response.json().catch(() => null);
+      const payload = await response.json().catch(() => null);
 
-    if (!response.ok) {
-      setMessage(payload?.error ?? "Unable to connect the website.");
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Unable to connect the website.");
+      }
+
+      const websiteId = payload?.website?.id;
+
+      if (typeof websiteId !== "string" || !websiteId) {
+        throw new Error("Website was created, but no installation link was returned.");
+      }
+
+      router.push(`/dashboard/websites/${websiteId}/install`);
+      router.refresh();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Unable to connect the website.",
+      );
       setIsSubmitting(false);
-      return;
     }
-
-    setName("");
-    setDomain("");
-    setMessage(`Connected ${payload.website.domain}.`);
-    setIsSubmitting(false);
-    router.refresh();
   }
 
   return (
@@ -59,7 +67,7 @@ export default function ConnectWebsiteForm() {
           required
           value={domain}
           onChange={(event) => setDomain(event.target.value)}
-          placeholder="physishealth.co.za"
+          placeholder="example.com"
           className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"
         />
       </label>
@@ -68,14 +76,14 @@ export default function ConnectWebsiteForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-xl bg-violet-600 px-5 py-3 font-semibold text-white transition hover:bg-violet-700 disabled:opacity-60"
+          className="w-full rounded-xl bg-violet-600 px-5 py-3 font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? "Connecting…" : "Connect website"}
+          {isSubmitting ? "Creating…" : "Continue to install"}
         </button>
       </div>
 
       {message ? (
-        <p className="md:col-span-3 text-sm font-medium text-slate-600">
+        <p className="md:col-span-3 text-sm font-medium text-red-600">
           {message}
         </p>
       ) : null}

@@ -1,5 +1,5 @@
-"use client";
-
+﻿"use client";
+import Script from "next/script";
 import Image from "next/image";
 import { Brain } from "@promptprofit/brain-sdk";
 import FlowPopup from "./components/FlowPopup";
@@ -26,9 +26,18 @@ export default function Home() {
           Click anywhere to trigger AI conversion flow
         </p>
 
-        {/* 🔥 FLOW ENGINE UI */}
-        <FlowPopup />
+        {/* ðŸ”¥ FLOW ENGINE UI */}
+        <FlowPopup />      <Script
+        src="/sdk.js"
+        data-key="f5630a25b93446bda951fb78e818e753"
+        data-api-base="http://localhost:3000"
+        strategy="afterInteractive"
+      />
+
       </main>
     </div>
   );
 }
+
+
+
