@@ -2,7 +2,7 @@
 import Script from "next/script";
 import Image from "next/image";
 import { Brain } from "@promptprofit/brain-sdk";
-import FlowPopup from "./components/FlowPopup";
+import FlowPopup from "./components/promptprofit/FlowPopup";
 
 export default function Home() {
   return (
@@ -38,6 +38,7 @@ export default function Home() {
     </div>
   );
 }
+
 
 
 

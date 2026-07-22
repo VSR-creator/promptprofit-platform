@@ -1,7 +1,16 @@
 ﻿"use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { getSession } from "@promptprofit/brain-sdk";
+declare global {
+  interface Window {
+    PromptProfit?: {
+      sessionId: string;
+      visitorId: string;
+      track: (type: string, data?: Record<string, unknown>) => void;
+      flush: () => void;
+    };
+  }
+}
 
 type FlowStep = {
   id?: string;
@@ -67,7 +76,11 @@ export default function FlowPopup() {
     setSubmitError("");
 
     try {
-      const session = getSession();
+      const promptProfit = window.PromptProfit;
+
+      if (!promptProfit?.sessionId || !promptProfit?.visitorId) {
+        throw new Error("PromptProfit visitor session is not ready yet.");
+      }
 
       const response = await fetch("/api/brain/leads", {
         method: "POST",
@@ -76,7 +89,7 @@ export default function FlowPopup() {
         },
         body: JSON.stringify({
           siteKey: SITE_KEY,
-          sessionId: session.sessionId,
+          sessionId: promptProfit.sessionId,
           email: normalizedEmail,
           sourcePage: window.location.pathname,
           metadata: {
@@ -295,3 +308,5 @@ export default function FlowPopup() {
     </div>
   );
 }
+
+
