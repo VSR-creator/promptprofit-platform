@@ -3,7 +3,8 @@ import { getNextActivationState } from "./activation-machine";
 import { getActivationProgress } from "./activation-progress";
 import { ActivationState } from "./activation-state";
 import { ActivationUI } from "./activation-ui";
-import { ActivationSnapshot, InstallationMethod } from "./activation-types";
+import { ActivationSnapshot } from "./activation-types";
+import { InstallationMethod } from "../installation";
 
 /**
  * PromptProfit Activation Engine

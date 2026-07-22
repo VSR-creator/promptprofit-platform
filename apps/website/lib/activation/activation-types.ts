@@ -3,12 +3,7 @@ import { ActivationState } from "./activation-state";
 /**
  * How the customer chose to install PromptProfit.
  */
-export type InstallationMethod =
-  | "self"
-  | "agency"
-  | "developer"
-  | "hosting"
-  | "other";
+import { InstallationMethod } from "../installation";
 
 /**
  * Snapshot of a workspace's activation progress.

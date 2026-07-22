@@ -5,3 +5,6 @@ export * from "./activation-progress";
 export * from "./activation-engine";
 export * from "./activation-facts";
 export * from "./activation-ui";
+export * from "./activation-facts-builder";
+export * from "./activation-command";
+export * from "./activation-handler";

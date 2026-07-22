@@ -1,4 +1,7 @@
 ﻿import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { activationEngine } from "@/lib/activation/activation-engine";
+import { ActivationSnapshot } from "@/lib/activation/activation-types";
+import { ActivationFacts } from "@/lib/activation/activation-facts";
 
 type WebsiteRow = {
   id: string;
@@ -17,6 +20,7 @@ type LeadRow = {
 
 export type WorkspaceDashboard = {
   workspaceId: string;
+  activation: ActivationSnapshot;
   metrics: {
     websites: number;
     sessions: number;
@@ -45,15 +49,35 @@ export async function getWorkspaceDashboard(
     .eq("workspace_id", workspaceId);
 
   if (websitesError) {
-    throw new Error(`Unable to load workspace websites: ${websitesError.message} (${websitesError.code ?? "no-code"})`);
+    throw new Error(
+      `Unable to load workspace websites: ${websitesError.message} (${websitesError.code ?? "no-code"})`,
+    );
   }
 
   const typedWebsites = (websites ?? []) as WebsiteRow[];
   const websiteIds = typedWebsites.map((website) => website.id);
 
+  const activationFacts: ActivationFacts = {
+    workspaceExists: true,
+    websiteRegistered: typedWebsites.length > 0,
+    installationSelected: false,
+    installerAssigned: false,
+    sdkInstalled: false,
+    firstEventReceived: false,
+    flowConfigured: false,
+    notificationsConfigured: false,
+  };
+
+  const activation = activationEngine.getSnapshot({
+    workspaceId,
+    websiteId: typedWebsites[0]?.id ?? "",
+    facts: activationFacts,
+  });
+
   if (websiteIds.length === 0) {
     return {
       workspaceId,
+      activation,
       metrics: {
         websites: 0,
         sessions: 0,
@@ -85,14 +109,16 @@ export async function getWorkspaceDashboard(
 
       supabase
         .from("pp_leads")
-        .select(`
-          id,
-          email,
-          source_page,
-          metadata,
-          created_at,
-          websites!inner(name)
-        `)
+        .select(
+          `
+        id,
+        email,
+        source_page,
+        metadata,
+        created_at,
+        websites!inner(name)
+      `,
+        )
         .in("website_id", websiteIds)
         .order("created_at", { ascending: false })
         .limit(10),
@@ -112,6 +138,7 @@ export async function getWorkspaceDashboard(
 
   return {
     workspaceId,
+    activation,
     metrics: {
       websites: typedWebsites.length,
       sessions,
@@ -136,6 +163,3 @@ export async function getWorkspaceDashboard(
     }),
   };
 }
-
-
-
