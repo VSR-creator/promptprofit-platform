@@ -1,9 +1,9 @@
+import { installationEngine } from "./installation-engine";
+import { installationRepository } from "./installation-repository";
 import {
   InstallationMethod,
   InstallationSelection,
 } from "./installation-types";
-
-import { installationEngine } from "./installation-engine";
 
 /**
  * PromptProfit Installation Service
@@ -12,16 +12,26 @@ import { installationEngine } from "./installation-engine";
  */
 export class InstallationService {
   /**
-   * Creates an installation selection.
-   *
-   * Persistence will be added later.
+   * Selects an installation method.
    */
-  selectMethod(
+  async selectMethod(
     workspaceId: string,
     websiteId: string,
     method: InstallationMethod,
-  ): InstallationSelection {
-    return installationEngine.selectMethod(workspaceId, websiteId, method);
+  ): Promise<InstallationSelection> {
+    const selection = installationEngine.selectMethod(
+      workspaceId,
+      websiteId,
+      method,
+    );
+
+    await installationRepository.save({
+      workspaceId,
+      websiteId,
+      installationMethod: method,
+    });
+
+    return selection;
   }
 }
 

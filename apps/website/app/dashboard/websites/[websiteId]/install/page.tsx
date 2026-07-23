@@ -1,9 +1,9 @@
 ﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import InstallationWizard from "./components/InstallationWizard";
 import CopySnippetButton from "./CopySnippetButton";
 import ActivationStatus from "./ActivationStatus";
-
 type Props = {
   params: Promise<{ websiteId: string }>;
 };
@@ -51,7 +51,9 @@ export default async function InstallWebsitePage({ params }: Props) {
 
           <p className="mt-3 max-w-2xl text-slate-600">
             Copy this snippet and paste it just before the closing{" "}
-            <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm">&lt;/body&gt;</code>{" "}
+            <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm">
+              &lt;/body&gt;
+            </code>{" "}
             tag on {website.domain}. Your connection activates automatically
             when PromptProfit receives its first visitor event.
           </p>
@@ -84,5 +86,3 @@ export default async function InstallWebsitePage({ params }: Props) {
     </main>
   );
 }
-
-

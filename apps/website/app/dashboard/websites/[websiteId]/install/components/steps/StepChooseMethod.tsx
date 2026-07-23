@@ -1,10 +1,16 @@
 import { ActivationSnapshot } from "@/lib/activation";
 
 type Props = {
+  workspaceId: string;
+  websiteId: string;
   snapshot: ActivationSnapshot;
 };
 
-export default function StepChooseMethod({ snapshot }: Props) {
+export default function StepChooseMethod({
+  workspaceId,
+  websiteId,
+  snapshot,
+}: Props) {
   return (
     <div className="space-y-8">
       <div>
