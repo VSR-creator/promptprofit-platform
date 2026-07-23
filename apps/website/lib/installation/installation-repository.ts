@@ -88,6 +88,25 @@ export class InstallationRepository {
 
     return data;
   }
+
+  /**
+   * Marks an installation as SDK verified.
+   */
+  async markVerified(websiteId: string): Promise<void> {
+    const supabase = await createSupabaseServerClient();
+
+    const { error } = await supabase
+      .from("pp_installations")
+      .update({
+        sdk_verified: true,
+        verified_at: new Date().toISOString(),
+      })
+      .eq("website_id", websiteId);
+
+    if (error) {
+      throw error;
+    }
+  }
 }
 
 /**

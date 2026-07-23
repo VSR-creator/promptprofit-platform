@@ -12,6 +12,12 @@ import {
  */
 export class InstallationService {
   /**
+   * Verifies an installation.
+   */
+  async verifyInstallation(websiteId: string): Promise<void> {
+    await installationRepository.markVerified(websiteId);
+  }
+  /**
    * Selects an installation method.
    */
   async selectMethod(
