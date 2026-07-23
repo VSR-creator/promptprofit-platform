@@ -1,7 +1,7 @@
 -- PromptProfit multi-tenant dashboard foundation.
 -- Every operational record is scoped through workspace -> website.
-
-create table if not exists workspace_outcome_playbooks (
+drop table if exists public.workspace_outcome_playbooks cascade;
+create table public.workspace_outcome_playbooks (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null unique references workspaces(id) on delete cascade,
 
@@ -51,7 +51,7 @@ create index if not exists pp_leads_website_first_contacted_at_idx
 
 insert into workspace_outcome_playbooks (
   workspace_id,
-  outcome_type,
+  primary_outcome,
   response_target_seconds,
   value_model,
   lead_stages

@@ -73,6 +73,22 @@ class EventBus {
       console.error("[PromptProfit] SDK verification failed", error);
     }
   }
+  public trackPageView() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    this.emit({
+      id: crypto.randomUUID(),
+      type: "page_view",
+      timestamp: Date.now(),
+      path: window.location.pathname,
+      metadata: {
+        title: document.title,
+        url: window.location.href,
+      },
+    });
+  }
 
   emit(event: BrainEvent) {
     const session = getSession();
