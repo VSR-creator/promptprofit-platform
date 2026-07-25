@@ -1,7 +1,4 @@
 ﻿import { getSession } from "./session";
-import { calculateIntent } from "./intelligence";
-import { shouldTrigger } from "./triggers";
-import { flowEngine } from "./flowEngine";
 import { EventBuffer } from "./buffer";
 import { verifyInstallation } from "./browser/verify";
 
@@ -115,26 +112,6 @@ class EventBus {
       },
       clientTimestamp: new Date(enriched.timestamp).toISOString(),
     });
-
-    const state = calculateIntent(this.events);
-    console.log("[Brain INTELLIGENCE]", state);
-
-    const trigger = shouldTrigger(state);
-
-    if (trigger) {
-      const flow = flowEngine.start(state.intent);
-
-      if (flow && typeof window !== "undefined") {
-        console.log("[FLOW STARTED]", flow.step);
-
-        window.dispatchEvent(
-          new CustomEvent("pp-flow", {
-            detail: flow.step,
-          }),
-        );
-      }
-    }
-  }
 
   getEvents() {
     return this.events;
