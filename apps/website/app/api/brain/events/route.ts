@@ -208,7 +208,10 @@ export async function POST(request: NextRequest) {
       .is("activated_at", null);
 
     if (activationError) {
-      console.error("PromptProfit website activation update failed:", activationError);
+      console.error(
+        "PromptProfit website activation update failed:",
+        activationError,
+      );
     }
 
     const intentScore = calculateIntentScore(events);
@@ -217,6 +220,20 @@ export async function POST(request: NextRequest) {
       intentScore >= 30 ? "high_intent" : intentScore >= 15 ? "warm" : "cold";
 
     const decision = getDecision(intentScore);
+
+    const { error: decisionError } = await supabaseAdmin
+      .from("pp_decisions")
+      .insert({
+        website_id: website.id,
+        session_id: sessionId,
+        decision_type: decision.decisionType,
+        flow_id: decision.flowId,
+        payload: decision,
+      });
+
+    if (decisionError) {
+      console.error("PromptProfit decision persistence failed:", decisionError);
+    }
 
     return NextResponse.json({
       ok: true,
@@ -237,6 +254,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-
-

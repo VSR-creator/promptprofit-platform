@@ -16,5 +16,15 @@ export async function sendToBrain({ endpoint, payload }: BrainRequest) {
     throw new Error(`Brain request failed (${response.status})`);
   }
 
-  return response.json();
+  const result = await response.json();
+
+  if (typeof window !== "undefined" && result?.decision?.flow) {
+    window.dispatchEvent(
+      new CustomEvent("pp-flow", {
+        detail: result.decision.flow,
+      }),
+    );
+  }
+
+  return result;
 }

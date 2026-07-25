@@ -4,11 +4,16 @@ import Script from "next/script";
 import Image from "next/image";
 import { Brain } from "@promptprofit/brain-sdk";
 import FlowPopup from "./components/promptprofit/FlowPopup";
-
 export default function Home() {
   useEffect(() => {
-    Brain.trackPageView();
+    Brain.emit({
+      id: crypto.randomUUID(),
+      type: "page_view",
+      timestamp: Date.now(),
+      path: window.location.pathname,
+    });
   }, []);
+
   return (
     <div
       className="flex flex-col items-center justify-center min-h-screen bg-zinc-50 dark:bg-black text-black dark:text-white"

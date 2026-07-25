@@ -106,6 +106,16 @@ export class EventBuffer {
           `Event request failed: ${response.status} ${responseText}`,
         );
       }
+
+      const result = await response.json();
+
+      if (typeof window !== "undefined" && result?.decision?.flow) {
+        window.dispatchEvent(
+          new CustomEvent("pp-flow", {
+            detail: result.decision.flow,
+          }),
+        );
+      }
     } catch (error) {
       console.error("[PromptProfit] Event delivery failed.", error);
       this.queue.unshift(...events);
@@ -131,6 +141,3 @@ export class EventBuffer {
     void this.flush(true);
   };
 }
-
-
-
