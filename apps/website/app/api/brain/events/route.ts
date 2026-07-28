@@ -174,6 +174,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { data: session, error: sessionLoadError } = await supabaseAdmin
+      .from("pp_sessions")
+      .select("id, state, intent_score")
+      .eq("id", sessionId)
+      .single();
+
+    if (sessionLoadError || !session) {
+      console.error("PromptProfit session load failed:", sessionLoadError);
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Unable to load session",
+        },
+        { status: 500 },
+      );
+    }
+
+    console.log("[SESSION]", session.id, "State:", session.state);
+    if (session.state === "DECISION_CREATED") {
+      const { data: existingDecision, error: existingDecisionError } =
+        await supabaseAdmin
+          .from("pp_decisions")
+          .select("*")
+          .eq("session_id", session.id)
+          .not("flow_id", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+      if (existingDecisionError) {
+        console.error(
+          "[RUNTIME] Failed to load cached decision:",
+          existingDecisionError,
+        );
+      } else if (existingDecision) {
+        console.log("[RUNTIME] Decision cache hit");
+
+        return NextResponse.json({
+          ok: true,
+          websiteId: website.id,
+          sessionId,
+          visitorId: visitorId ?? null,
+          receivedEvents: events.length,
+          intentScore: session.intent_score ?? 0,
+          decision: existingDecision.payload,
+        });
+      }
+    }
+
     const eventRows = events.map((event) => ({
       website_id: website.id,
       session_id: sessionId,
@@ -181,6 +231,22 @@ export async function POST(request: NextRequest) {
       event_data: event.data,
       client_timestamp: event.clientTimestamp ?? null,
     }));
+    if (session.state === "NEW") {
+      const { error: stateError } = await supabaseAdmin
+        .from("pp_sessions")
+        .update({
+          state: "VERIFIED",
+        })
+        .eq("id", session.id);
+
+      if (stateError) {
+        console.error("PromptProfit session state update failed:", stateError);
+      } else {
+        session.state = "VERIFIED";
+
+        console.log("[SESSION]", session.id, "Transition:", "NEW → VERIFIED");
+      }
+    }
 
     const { error: insertError } = await supabaseAdmin
       .from("pp_events")
@@ -219,9 +285,44 @@ export async function POST(request: NextRequest) {
     const intentLevel =
       intentScore >= 30 ? "high_intent" : intentScore >= 15 ? "warm" : "cold";
 
+    /*
+|--------------------------------------------------------------------------
+| Decision Gate
+|--------------------------------------------------------------------------
+*/
+
+    const { data: existingDecision } = await supabaseAdmin
+      .from("pp_decisions")
+      .select("*")
+      .eq("session_id", sessionId)
+      .eq("flow_id", "warm-visitor-lead-capture-v1")
+      .maybeSingle();
+
+    if (existingDecision) {
+      console.log("[BRAIN] Existing decision reused");
+
+      return NextResponse.json({
+        ok: true,
+        websiteId: website.id,
+        sessionId,
+        visitorId: visitorId ?? null,
+        receivedEvents: events.length,
+        intentScore,
+        intentLevel,
+        decision: existingDecision.payload,
+      });
+    }
+
+    /*
+|--------------------------------------------------------------------------
+| Create New Decision
+|--------------------------------------------------------------------------
+*/
     const decision = getDecision(intentScore);
 
-    const { error: decisionError } = await supabaseAdmin
+    console.log("[BRAIN] New decision created");
+
+    const { data: insertedDecision, error: decisionError } = await supabaseAdmin
       .from("pp_decisions")
       .insert({
         website_id: website.id,
@@ -229,11 +330,94 @@ export async function POST(request: NextRequest) {
         decision_type: decision.decisionType,
         flow_id: decision.flowId,
         payload: decision,
+      })
+      .select()
+      .single();
+
+    /*
+|--------------------------------------------------------------------------
+| Race Condition Protection
+|--------------------------------------------------------------------------
+*/
+
+    if (decisionError?.code === "23505") {
+      const { data: existingDecision, error: existingDecisionError } =
+        await supabaseAdmin
+          .from("pp_decisions")
+          .select("*")
+          .eq("session_id", sessionId)
+          .eq("flow_id", decision.flowId)
+          .single();
+
+      if (existingDecisionError || !existingDecision) {
+        console.error(
+          "PromptProfit existing decision lookup failed:",
+          existingDecisionError,
+        );
+
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Unable to retrieve existing decision",
+          },
+          {
+            status: 500,
+          },
+        );
+      }
+
+      console.log("[BRAIN] Existing decision reused");
+
+      return NextResponse.json({
+        ok: true,
+        websiteId: website.id,
+        sessionId,
+        visitorId: visitorId ?? null,
+        receivedEvents: events.length,
+        intentScore,
+        intentLevel,
+        decision: existingDecision.payload,
       });
+    }
+
+    /*
+|--------------------------------------------------------------------------
+| Decision Persistence Failure
+|--------------------------------------------------------------------------
+*/
 
     if (decisionError) {
       console.error("PromptProfit decision persistence failed:", decisionError);
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Unable to persist decision",
+        },
+        {
+          status: 500,
+        },
+      );
     }
+
+    /*
+|--------------------------------------------------------------------------
+| Update Session State
+|--------------------------------------------------------------------------
+*/
+
+    await supabaseAdmin
+      .from("pp_sessions")
+      .update({
+        state: "DECISION_CREATED",
+      })
+      .eq("id", sessionId);
+
+    /*
+|--------------------------------------------------------------------------
+| Success Response
+|--------------------------------------------------------------------------
+*/
 
     return NextResponse.json({
       ok: true,
@@ -243,14 +427,19 @@ export async function POST(request: NextRequest) {
       receivedEvents: events.length,
       intentScore,
       intentLevel,
-      decision,
+      decision: insertedDecision?.payload ?? decision,
     });
   } catch (error) {
     console.error("PromptProfit event ingestion failed:", error);
 
     return NextResponse.json(
-      { ok: false, error: "Unable to process events" },
-      { status: 500 },
+      {
+        ok: false,
+        error: "Unable to process events",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }

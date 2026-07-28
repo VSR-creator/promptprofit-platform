@@ -6,6 +6,7 @@ export interface Session {
 
 const USER_KEY = "pp_user_id";
 const SESSION_KEY = "pp_session";
+let cachedSession: Session | null = null;
 
 function generateId() {
   return crypto.randomUUID();
@@ -37,13 +38,14 @@ export function createSession(): Session {
     startedAt: Date.now(),
   };
 
+  cachedSession = session;
+
   if (typeof window !== "undefined") {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
   }
 
   return session;
 }
-
 /**
  * Get active session
  */
@@ -56,11 +58,39 @@ export function getSession(): Session {
     };
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | Runtime Singleton
+  |--------------------------------------------------------------------------
+  */
+
+  if (cachedSession) {
+    return cachedSession;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Session Storage
+  |--------------------------------------------------------------------------
+  */
+
   const existing = sessionStorage.getItem(SESSION_KEY);
 
   if (existing) {
-    return JSON.parse(existing);
+    const parsedSession: Session = JSON.parse(existing);
+
+    cachedSession = parsedSession;
+
+    return parsedSession;
   }
 
-  return createSession();
+  /*
+  |--------------------------------------------------------------------------
+  | First Session
+  |--------------------------------------------------------------------------
+  */
+
+  cachedSession = createSession();
+
+  return cachedSession;
 }

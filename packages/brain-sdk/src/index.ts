@@ -2,6 +2,11 @@
 import { EventBuffer } from "./buffer";
 import { verifyInstallation } from "./browser/verify";
 
+declare global {
+  interface Window {
+    __PROMPTPROFIT_EVENT_BUFFER__?: EventBuffer;
+  }
+}
 export type EventType = "page_view" | "click" | "scroll" | "form_submit";
 
 export interface BrainEvent {
@@ -20,15 +25,22 @@ class EventBus {
   private verified = false;
 
   private getEventBuffer(): EventBuffer | null {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined") {
+      return null;
+    }
 
     if (this.eventBuffer) {
       return this.eventBuffer;
     }
 
+    if (window.__PROMPTPROFIT_EVENT_BUFFER__) {
+      this.eventBuffer = window.__PROMPTPROFIT_EVENT_BUFFER__;
+      return this.eventBuffer;
+    }
+
     const session = getSession();
 
-    this.eventBuffer = new EventBuffer({
+    const buffer = new EventBuffer({
       apiBase:
         process.env.NEXT_PUBLIC_PROMPTPROFIT_API_BASE ?? window.location.origin,
       siteKey:
@@ -40,12 +52,12 @@ class EventBus {
       maxBatchSize: 20,
     });
 
-    return this.eventBuffer;
+    window.__PROMPTPROFIT_EVENT_BUFFER__ = buffer;
+    this.eventBuffer = buffer;
+
+    return buffer;
   }
 
-  /**
-   * Verifies the SDK installation once per page load.
-   */
   private async verifySdk() {
     if (this.verified) {
       return;
@@ -112,6 +124,7 @@ class EventBus {
       },
       clientTimestamp: new Date(enriched.timestamp).toISOString(),
     });
+  }
 
   getEvents() {
     return this.events;
@@ -124,6 +137,19 @@ class EventBus {
   }
 }
 
-export const Brain = new EventBus();
+declare global {
+  interface Window {
+    __PROMPTPROFIT_BRAIN__?: EventBus;
+  }
+}
+
+const runtime =
+  typeof window === "undefined"
+    ? new EventBus()
+    : (window.__PROMPTPROFIT_BRAIN__ ??= new EventBus());
+
+export const Brain = runtime;
 
 export { getSession } from "./session";
+
+export * from "./session-state";

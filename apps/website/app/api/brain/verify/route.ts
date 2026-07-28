@@ -1,25 +1,49 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { installationService } from "@/lib/installation/installation-service";
 
 export async function POST(request: Request) {
-  const { publicKey } = await request.json();
+  try {
+    const { publicKey } = await request.json();
 
-  const supabase = await createSupabaseServerClient();
+    console.log("[VERIFY] Public Key:", publicKey);
 
-  const { data: website, error } = await supabase
-    .from("websites")
-    .select("id")
-    .eq("public_key", publicKey)
-    .maybeSingle();
+    const supabase = supabaseAdmin;
 
-  if (error || !website) {
-    return NextResponse.json({ verified: false }, { status: 404 });
+    const { data: website, error } = await supabase
+      .from("websites")
+      .select("id, name, public_key")
+      .eq("public_key", publicKey)
+      .maybeSingle();
+
+    console.log("[VERIFY] Website:", website);
+    console.log("[VERIFY] Error:", error);
+
+    if (error) {
+      return NextResponse.json(
+        { verified: false, stage: "query", error },
+        { status: 500 },
+      );
+    }
+
+    if (!website) {
+      return NextResponse.json(
+        { verified: false, stage: "lookup" },
+        { status: 404 },
+      );
+    }
+
+    await installationService.verifyInstallation(website.id);
+
+    return NextResponse.json({
+      verified: true,
+    });
+  } catch (err) {
+    console.error("[VERIFY] Unexpected:", err);
+
+    return NextResponse.json(
+      { verified: false, stage: "exception" },
+      { status: 500 },
+    );
   }
-
-  await installationService.verifyInstallation(website.id);
-
-  return NextResponse.json({
-    verified: true,
-  });
 }
