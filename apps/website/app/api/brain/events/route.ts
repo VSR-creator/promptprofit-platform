@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     const { data: website, error: websiteError } = await supabaseAdmin
       .from("websites")
-      .select("id, domain, workspace_id")
+      .select("id, domain, workspace_id, total_events")
       .eq("public_key", siteKey)
       .single();
 
@@ -269,9 +269,14 @@ export async function POST(request: NextRequest) {
         first_event_at: activationTimestamp,
         activation_state: "TRACKING",
         activated_at: activationTimestamp,
+
+        installation_status: "INSTALLED",
+        installed_at: activationTimestamp,
+        last_seen_at: activationTimestamp,
+
+        total_events: (website.total_events ?? 0) + events.length,
       })
-      .eq("id", website.id)
-      .is("activated_at", null);
+      .eq("id", website.id);
 
     if (activationError) {
       console.error(
