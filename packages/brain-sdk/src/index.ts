@@ -1,6 +1,7 @@
-﻿import { getSession } from "./session";
+﻿import type { Session } from "./session";
 import { EventBuffer } from "./buffer";
 import { verifyInstallation } from "./browser/verify";
+import { RuntimeController } from "./runtime";
 
 declare global {
   interface Window {
@@ -20,17 +21,19 @@ export interface BrainEvent {
 }
 
 class EventBus {
-  private events: BrainEvent[] = [];
   private eventBuffer: EventBuffer | null = null;
-  private verified = false;
 
+  private runtime = RuntimeController.getInstance();
   private getEventBuffer(): EventBuffer | null {
     if (typeof window === "undefined") {
       return null;
     }
 
-    if (this.eventBuffer) {
-      return this.eventBuffer;
+    const existingBuffer = this.runtime.getEventBuffer();
+
+    if (existingBuffer) {
+      this.eventBuffer = existingBuffer;
+      return existingBuffer;
     }
 
     if (window.__PROMPTPROFIT_EVENT_BUFFER__) {
@@ -38,7 +41,7 @@ class EventBus {
       return this.eventBuffer;
     }
 
-    const session = getSession();
+    const session = this.runtime.getSession();
 
     const buffer = new EventBuffer({
       apiBase:
@@ -54,16 +57,17 @@ class EventBus {
 
     window.__PROMPTPROFIT_EVENT_BUFFER__ = buffer;
     this.eventBuffer = buffer;
+    this.runtime.setEventBuffer(buffer);
 
     return buffer;
   }
 
   private async verifySdk() {
-    if (this.verified) {
+    if (this.runtime.isVerified()) {
       return;
     }
 
-    this.verified = true;
+    this.runtime.setVerified(true);
 
     if (typeof window === "undefined") {
       return;
@@ -100,7 +104,7 @@ class EventBus {
   }
 
   emit(event: BrainEvent) {
-    const session = getSession();
+    const session = this.runtime.getSession();
 
     const enriched: BrainEvent = {
       ...event,
@@ -110,7 +114,7 @@ class EventBus {
 
     void this.verifySdk();
 
-    this.events.push(enriched);
+    this.runtime.pushEvent(enriched);
 
     this.getEventBuffer()?.push({
       type: enriched.type,
@@ -127,13 +131,13 @@ class EventBus {
   }
 
   getEvents() {
-    return this.events;
+    return this.runtime.getEvents();
   }
 
   destroy() {
     this.eventBuffer?.destroy();
     this.eventBuffer = null;
-    this.events = [];
+    this.runtime.clearEvents();
   }
 }
 
