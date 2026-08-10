@@ -1,4 +1,4 @@
-export const ActivationStates = {
+export const ActivationsStates = {
   CREATED: "CREATED",
   INSTALLED: "INSTALLED",
   TRACKING: "TRACKING",
