@@ -17,6 +17,7 @@ export class EventBuffer {
   private queue: BrainEvent[] = [];
   private flushTimer: ReturnType<typeof setInterval> | null = null;
   private isFlushing = false;
+  private lastFlowSignature: string | null = null;
 
   private readonly apiBase: string;
   private readonly siteKey: string;
@@ -59,6 +60,7 @@ export class EventBuffer {
     }
 
     this.isFlushing = true;
+
     const events = this.queue.splice(0, this.maxBatchSize);
 
     const payload = {
@@ -81,7 +83,9 @@ export class EventBuffer {
       ) {
         const sent = navigator.sendBeacon(
           url,
-          new Blob([body], { type: "application/json" }),
+          new Blob([body], {
+            type: "application/json",
+          }),
         );
 
         if (!sent) {
@@ -102,6 +106,7 @@ export class EventBuffer {
 
       if (!response.ok) {
         const responseText = await response.text();
+
         throw new Error(
           `Event request failed: ${response.status} ${responseText}`,
         );
@@ -110,14 +115,26 @@ export class EventBuffer {
       const result = await response.json();
 
       if (typeof window !== "undefined" && result?.decision?.flow) {
-        window.dispatchEvent(
-          new CustomEvent("pp-flow", {
-            detail: result.decision.flow,
-          }),
-        );
+        const flow = result.decision.flow;
+        const flowSignature = JSON.stringify(flow);
+
+        if (flowSignature !== this.lastFlowSignature) {
+          this.lastFlowSignature = flowSignature;
+
+          window.dispatchEvent(
+            new CustomEvent("pp-flow", {
+              detail: flow,
+            }),
+          );
+
+          console.log("[BrainSDK FLOW] New flow dispatched:", flow.id);
+        } else {
+          console.log("[BrainSDK FLOW] Duplicate flow ignored:", flow.id);
+        }
       }
     } catch (error) {
       console.error("[PromptProfit] Event delivery failed.", error);
+
       this.queue.unshift(...events);
     } finally {
       this.isFlushing = false;

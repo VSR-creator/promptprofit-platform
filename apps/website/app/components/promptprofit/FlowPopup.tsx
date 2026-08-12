@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 declare global {
   interface Window {
     PromptProfit?: {
@@ -25,25 +25,44 @@ const SITE_KEY = process.env.NEXT_PUBLIC_PROMPTPROFIT_SITE_KEY;
 
 export default function FlowPopup() {
   const [step, setStep] = useState<FlowStep | null>(null);
-  const [screen, setScreen] = useState<Screen>("question");
+  const [screen, setScreen] = useState("question");
+  const currentStepIdRef = useRef<string | null>(null);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const flowShownRef = useRef(false);
 
   useEffect(() => {
     const handleFlow = (event: Event) => {
       const customEvent = event as CustomEvent<FlowStep>;
+      const incomingStep = customEvent.detail;
 
-      setStep(customEvent.detail ?? {});
-      setScreen("question");
-      setEmail("");
-      setName("");
+      if (!incomingStep) return;
+
+      setStep((currentStep) => {
+        if (currentStep?.id === incomingStep.id) {
+          return currentStep;
+        }
+
+        return incomingStep;
+      });
+
+      setScreen((currentScreen) => {
+        if (currentStepIdRef.current === incomingStep.id) {
+          return currentScreen;
+        }
+
+        return "question";
+      });
+
+      currentStepIdRef.current = incomingStep.id ?? null;
       setSubmitError("");
       setIsSubmitting(false);
     };
 
     const handleClose = () => {
+      currentStepIdRef.current = null;
       setStep(null);
     };
 
@@ -58,7 +77,10 @@ export default function FlowPopup() {
 
   if (!step) return null;
 
-  const close = () => setStep(null);
+  const close = () => {
+    currentStepIdRef.current = null;
+    setStep(null);
+  };
 
   const submitLead = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -308,5 +330,3 @@ export default function FlowPopup() {
     </div>
   );
 }
-
-
