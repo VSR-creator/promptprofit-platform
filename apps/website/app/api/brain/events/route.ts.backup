@@ -298,31 +298,7 @@ export async function POST(request: NextRequest) {
     }
 
 
-    const eventIntentScore = calculateIntentScore(events);
-    const previousIntentScore = session.intent_score ?? 0;
-    const intentScore = previousIntentScore + eventIntentScore;
-
-    const { error: intentScoreError } = await supabaseAdmin
-      .from("pp_sessions")
-      .update({
-        intent_score: intentScore,
-      })
-      .eq("id", session.id);
-
-    if (intentScoreError) {
-      console.error(
-        "[SESSION] Intent score update failed:",
-        intentScoreError,
-      );
-    } else {
-      session.intent_score = intentScore;
-    }
-
-    console.log("[SESSION] Intent score:", {
-      previous: previousIntentScore,
-      current: eventIntentScore,
-      total: intentScore,
-    });
+    const intentScore = calculateIntentScore(events);
 
     const intentLevel =
       intentScore >= 30 ? "high_intent" : intentScore >= 15 ? "warm" : "cold";
@@ -485,4 +461,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
