@@ -1,4 +1,4 @@
-﻿import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type LeadQueueItem = {
   leadId: string;
@@ -8,6 +8,8 @@ export type LeadQueueItem = {
   capturedAt: string;
   status: "new" | "contacted" | "qualified" | "won" | "lost";
   firstContactedAt: string | null;
+  nextAction: string | null;
+  nextActionAt: string | null;
   intentScore: number;
 };
 
@@ -20,6 +22,8 @@ export async function getLeadResponseQueue(workspaceId: string) {
       lead_id,
       status,
       first_contacted_at,
+      next_action,
+      next_action_at,
       pp_leads!inner (
         email,
         source_page,
@@ -39,6 +43,7 @@ export async function getLeadResponseQueue(workspaceId: string) {
 
   return (data ?? []).map((row: any): LeadQueueItem => {
     const lead = row.pp_leads;
+
     const session = Array.isArray(lead.pp_sessions)
       ? lead.pp_sessions[0]
       : lead.pp_sessions;
@@ -51,6 +56,8 @@ export async function getLeadResponseQueue(workspaceId: string) {
       capturedAt: lead.created_at,
       status: row.status,
       firstContactedAt: row.first_contacted_at,
+      nextAction: row.next_action ?? null,
+      nextActionAt: row.next_action_at ?? null,
       intentScore: session?.intent_score ?? 0,
     };
   });
